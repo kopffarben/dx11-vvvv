@@ -12,10 +12,13 @@ using FeralTic.DX11.Resources;
 namespace VVVV.DX11
 {
     public delegate void RenderDelegate<T>(IPluginIO pin, DX11RenderContext context, T settings);
+    public delegate void RenderSpreadDelegate<T>(IPluginIO pin, DX11RenderContext context, T settings, int slice);
 
     public class DX11BaseLayer<T> : IDX11Resource
     {
         public RenderDelegate<T> Render;
+        public RenderSpreadDelegate<T> RenderSpread;
+        
 
         public bool PostUpdate
         {
