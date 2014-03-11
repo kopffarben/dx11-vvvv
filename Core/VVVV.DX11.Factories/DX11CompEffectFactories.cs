@@ -64,6 +64,33 @@ namespace VVVV.DX11.Factories
         }
     }
 
+    [Export(typeof(IAddonFactory))]
+    [Export(typeof(DX11SpreadCompEffectFactory))]
+    [ComVisible(false)]
+    public class DX11SpreadCompEffectFactory : AbstractDX11CompShaderFactory<DX11SpreadShaderNode>
+    {
+        [ImportingConstructor()]
+        public DX11SpreadCompEffectFactory(CompositionContainer parentContainer, IHDEHost hdeHost)
+            : base(parentContainer, hdeHost, ".sfxc")
+        {
+        }
+
+        public override string JobStdSubPath
+        {
+            get { return "dx11"; }
+        }
+
+        protected override string NodeCategory
+        {
+            get { return "DX11.Spread.Effect"; }
+        }
+
+        protected override string NodeVersion
+        {
+            get { return "Compiled"; }
+        }
+    }
+
 
     [Export(typeof(IAddonFactory))]
     [Export(typeof(DX11GeomEffectFactory))]
@@ -84,6 +111,32 @@ namespace VVVV.DX11.Factories
         protected override string NodeCategory
         {
             get { return "DX11.GeomFX"; }
+        }
+
+        protected override string NodeVersion
+        {
+            get { return "Compiled"; }
+        }
+    }
+    [Export(typeof(IAddonFactory))]
+    [Export(typeof(DX11SpreadGeomEffectFactory))]
+    [ComVisible(false)]
+    public class DX11SpreadGeomEffectFactory : AbstractDX11CompShaderFactory<DX11SpreadStreamOutShaderNode>
+    {
+        [ImportingConstructor()]
+        public DX11SpreadGeomEffectFactory(CompositionContainer parentContainer, IHDEHost hdeHost)
+            : base(parentContainer, hdeHost, ".sgsfxc")
+        {
+        }
+
+        public override string JobStdSubPath
+        {
+            get { return "geom11"; }
+        }
+
+        protected override string NodeCategory
+        {
+            get { return "DX11.Spread.GeomFX"; }
         }
 
         protected override string NodeVersion

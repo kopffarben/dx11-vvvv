@@ -43,6 +43,33 @@ namespace VVVV.DX11.Factories
     }
 
     [Export(typeof(IAddonFactory))]
+    [Export(typeof(DX11SpreadEffectFactory))]
+    [ComVisible(false)]
+    public class DX11SpreadEffectFactory : AbstractDX11ShaderFactory<DX11SpreadShaderNode>
+    {
+        [ImportingConstructor()]
+        public DX11SpreadEffectFactory(CompositionContainer parentContainer) : base(parentContainer, ".sfx")
+        {
+            DocumentFactory.RegisterLoader(".sfx", typeof(FXDocument));
+        }
+
+        public override string JobStdSubPath
+        {
+            get { return "dx11"; }
+        }
+
+        protected override string NodeCategory
+        {
+            get { return "DX11.Spread.Effect"; }
+        }
+
+        protected override string NodeVersion
+        {
+            get { return ""; }
+        }
+    }
+
+    [Export(typeof(IAddonFactory))]
     [Export(typeof(DX11ImageEffectFactory))]
     [ComVisible(false)]
     public class DX11ImageEffectFactory : AbstractDX11ShaderFactory<DX11ImageShaderNode>
@@ -221,6 +248,34 @@ namespace VVVV.DX11.Factories
         protected override string NodeCategory
         {
             get { return "DX11.GeomFX"; }
+        }
+
+        protected override string NodeVersion
+        {
+            get { return ""; }
+        }
+    }
+
+    [Export(typeof(IAddonFactory))]
+    [Export(typeof(DX11SpreadStreamOutEffectFactory))]
+    [ComVisible(false)]
+    public class DX11SpreadStreamOutEffectFactory : AbstractDX11ShaderFactory<DX11SpreadStreamOutShaderNode>
+    {
+        [ImportingConstructor()]
+        public DX11SpreadStreamOutEffectFactory(CompositionContainer parentContainer)
+            : base(parentContainer, ".sgsfx")
+        {
+            DocumentFactory.RegisterLoader(".sgsfx", typeof(FXDocument));
+        }
+
+        public override string JobStdSubPath
+        {
+            get { return "geom11"; }
+        }
+
+        protected override string NodeCategory
+        {
+            get { return "DX11.Spread.GeomFX"; }
         }
 
         protected override string NodeVersion
