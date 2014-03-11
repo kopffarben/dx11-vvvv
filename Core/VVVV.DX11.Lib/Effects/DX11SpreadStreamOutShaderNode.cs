@@ -58,7 +58,7 @@ namespace VVVV.DX11.Nodes.Layers
         private int spmax = 0;
 
         #region Default Input Pins
-        [Input("Geometry In", IsSingle=true, CheckIfChanged=true)]
+        [Input("Geometry In", CheckIfChanged=true)]
         protected Pin<DX11Resource<IDX11Geometry>> FIn;
 
         [Input("SpreadLayers", DefaultBoolean = true, Visibility = PinVisibility.OnlyInspector)]
@@ -91,17 +91,17 @@ namespace VVVV.DX11.Nodes.Layers
 
         #region Output Pins
 
-        [Output("Geometry Out", IsSingle=true)]
+        [Output("Geometry Out")]
         protected ISpread<DX11Resource<IDX11Geometry>> FOut;
 
-        [Output("Buffer Out", IsSingle = true)]
+        [Output("Buffer Out")]
         protected ISpread<DX11Resource<DX11RawBuffer>> FOutBuffer;
 
         [Output("Technique Valid")]
         protected ISpread<bool> FOutTechniqueValid;
 
-        private IDX11Geometry clone;
-        private Buffer buffer;
+        private IDX11Geometry[] clone   = new IDX11Geometry[64]; 
+        private Buffer[] buffer         = new Buffer[64];
 
         #endregion
 
@@ -172,10 +172,26 @@ namespace VVVV.DX11.Nodes.Layers
         {
             this.spmax = this.CalculateSpreadMax();
 
-            if (this.FOut[0] == null)
+            if (!FInSpread[0])
             {
-                this.FOut[0] = new DX11Resource<IDX11Geometry>();
-                this.FOutBuffer[0] = new DX11Resource<DX11RawBuffer>();
+                this.FOut.SliceCount = 1;
+                this.FOutBuffer.SliceCount = 1;
+                if (this.FOut[0] == null)
+                {
+                    this.FOut[0] = new DX11Resource<IDX11Geometry>();
+                    this.FOutBuffer[0] = new DX11Resource<DX11RawBuffer>();
+                }
+            } else {
+                this.FOut.SliceCount = spmax;
+                this.FOutBuffer.SliceCount = spmax;
+                for (int i = 0; i < spmax; i++)
+                {
+                    if (this.FOut[i] == null) 
+                    {
+                        this.FOut[i] = new DX11Resource<IDX11Geometry>();
+                        this.FOutBuffer[i] = new DX11Resource<DX11RawBuffer>();
+                    }
+                }
             }
             
             if (this.FInvalidate)
@@ -248,252 +264,256 @@ namespace VVVV.DX11.Nodes.Layers
             }
 
             DX11ShaderData shaderdata = this.deviceshaderdata[context];
-            if (this.shaderupdated)
+
+            for (int i = 0; i < spmax; i++)
             {
-                shaderdata.SetEffect(this.FShader);
-                shaderdata.Update(this.FInTechnique[0].Index, 0, this.FIn);
-                this.shaderupdated = false;
-            }
-
-            if (this.FInEnabled[0] && this.FIn.PluginIO.IsConnected)
-            {
-                //Clear shader stages (important here)
-                shaderdata.ResetShaderStages(ctx);
-
-
-                if (this.FIn.IsChanged || this.FInTechnique.IsChanged || shaderdata.LayoutValid.Count == 0)
+                if (this.shaderupdated)
                 {
-                    shaderdata.Update(this.FInTechnique[0].Index, 0, this.FIn);
-                    
+                    shaderdata.SetEffect(this.FShader);
+                    shaderdata.Update(this.FInTechnique[i].Index, 0, this.FIn);
+                    this.shaderupdated = false;
                 }
 
-                if (shaderdata.IsLayoutValid(0) && this.varmanager.SetGlobalSettings(shaderdata.ShaderInstance,this.settings))
+                if (this.FInEnabled[i] && this.FIn.PluginIO.IsConnected)
                 {
-                    this.OnBeginQuery(context);
+                    //Clear shader stages (important here)
+                    shaderdata.ResetShaderStages(ctx);
 
-                    this.settings = new DX11RenderSettings();
-                    this.settings.RenderWidth = 1;
-                    this.settings.RenderHeight = 1;
-                    this.settings.View = this.FInView[0];
-                    this.settings.Projection = this.FInProjection[0];
-                    this.settings.ViewProjection = this.settings.View * this.settings.Projection;
-                    this.settings.RenderDepth = 1;
-                    this.settings.BackBuffer = null;
 
-                    if (this.FInSemantics.PluginIO.IsConnected)
+                    if (this.FIn.IsChanged || this.FInTechnique.IsChanged || shaderdata.LayoutValid.Count == 0)
                     {
-                        this.settings.CustomSemantics.AddRange(this.FInSemantics.ToArray());
-                    }
-                    if (this.FInResSemantics.PluginIO.IsConnected)
-                    {
-                        this.settings.ResourceSemantics.AddRange(this.FInResSemantics.ToArray());
+                        shaderdata.Update(this.FInTechnique[i].Index, 0, this.FIn);
+                    
                     }
 
-                    this.varmanager.ApplyGlobal(shaderdata.ShaderInstance);
-
-                    if (this.clone == null || this.FIn.IsChanged || this.FInAsAuto.IsChanged || this.FInMaxElements.IsChanged || this.FInLayout.IsChanged || this.FInAutoLayout.IsChanged)
+                    if (shaderdata.IsLayoutValid(0) && this.varmanager.SetGlobalSettings(shaderdata.ShaderInstance,this.settings))
                     {
-                        if (this.buffer != null) { this.buffer.Dispose(); }
+                        this.OnBeginQuery(context);
 
-                        bool customlayout = this.FInLayout.PluginIO.IsConnected || this.FInAutoLayout[0];
-                        InputElement[] elems = null;
-                        int size = 0;
+                        this.settings = new DX11RenderSettings();
+                        this.settings.RenderWidth = 1;
+                        this.settings.RenderHeight = 1;
+                        this.settings.View = this.FInView[i];
+                        this.settings.Projection = this.FInProjection[i];
+                        this.settings.ViewProjection = this.settings.View * this.settings.Projection;
+                        this.settings.RenderDepth = 1;
+                        this.settings.BackBuffer = null;
 
-                        if (this.FInAutoLayout[0])
+                        if (this.FInSemantics.PluginIO.IsConnected)
                         {
-                            elems = this.FShader.DefaultEffect.GetTechniqueByIndex(tid).GetPassByIndex(0).GetStreamOutputLayout(out size);
+                            this.settings.CustomSemantics.AddRange(this.FInSemantics.ToArray());
                         }
-                        else
+                        if (this.FInResSemantics.PluginIO.IsConnected)
                         {
-                            if (customlayout)
-                            {
-                                elems = this.BindInputLayout(out size);
-                            }
+                            this.settings.ResourceSemantics.AddRange(this.FInResSemantics.ToArray());
                         }
 
-                        #region Vertex Geom
-                        if (this.FIn[0][context] is DX11VertexGeometry)
+                        this.varmanager.ApplyGlobal(shaderdata.ShaderInstance);
+
+                        if (this.clone[i] == null || this.FIn.IsChanged || this.FInAsAuto.IsChanged || this.FInMaxElements.IsChanged || this.FInLayout.IsChanged || this.FInAutoLayout.IsChanged)
                         {
-                            if (!this.FInAsAuto[0])
+                            if (this.buffer[i] != null) { this.buffer[i].Dispose(); }
+
+                            bool customlayout = this.FInLayout.PluginIO.IsConnected || this.FInAutoLayout[i];
+                            InputElement[] elems = null;
+                            int size = 0;
+
+                            if (this.FInAutoLayout[i])
                             {
-                                DX11VertexGeometry vg = (DX11VertexGeometry)this.FIn[0][context].ShallowCopy();
-
-                                int vsize = customlayout ? size : vg.VertexSize;
-                                Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, vg.VerticesCount);
-                                if (customlayout) { vg.VertexSize = vsize; }
-                                vg.VertexBuffer = vbo;
-
-                                this.clone = vg;
-                                this.buffer = vbo;
+                                elems = this.FShader.DefaultEffect.GetTechniqueByIndex(tid).GetPassByIndex(0).GetStreamOutputLayout(out size);
                             }
                             else
                             {
-                                DX11VertexGeometry vg = (DX11VertexGeometry)this.FIn[0][context].ShallowCopy();
-
-                                int maxv = vg.VerticesCount;
-                                if (this.FInMaxElements[0] > 0)
+                                if (customlayout)
                                 {
-                                    maxv = this.FInMaxElements[0];
+                                    elems = this.BindInputLayout(out size);
                                 }
-
-                                int vsize = customlayout ? size : vg.VertexSize;
-                                Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, maxv);
-                                vg.VertexBuffer = vbo;
-                                vg.AssignDrawer(new DX11VertexAutoDrawer());
-                                if (customlayout) { vg.VertexSize = vsize; }
-
-                                this.clone = vg;
-                                this.buffer = vbo;
                             }
-                        }
-                        #endregion
 
-                        #region Inxexed geom
-                        if (this.FIn[0][context] is DX11IndexedGeometry)
-                        {
-                            if (!this.FInAsAuto[0])
+                            #region Vertex Geom
+                            if (this.FIn[i][context] is DX11VertexGeometry)
                             {
-
-                                DX11IndexedGeometry ig = (DX11IndexedGeometry)this.FIn[0][context].ShallowCopy();
-
-                                int vsize = customlayout ? size : ig.VertexSize;
-                                Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, ig.VerticesCount);
-                                ig.VertexBuffer = vbo;
-                                if (customlayout) { ig.VertexSize = vsize; }
-                                this.clone = ig;
-                                this.buffer = vbo;
-                            }
-                            else
-                            {
-                                //Need to rebind indexed geom as vertex
-                                DX11IndexedGeometry ig = (DX11IndexedGeometry)this.FIn[0][context];
-
-                                int maxv = ig.VerticesCount;
-                                if (this.FInMaxElements[0] > 0)
+                                if (!this.FInAsAuto[i])
                                 {
-                                    maxv = this.FInMaxElements[0];
+                                    DX11VertexGeometry vg = (DX11VertexGeometry)this.FIn[i][context].ShallowCopy();
+
+                                    int vsize = customlayout ? size : vg.VertexSize;
+                                    Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, vg.VerticesCount);
+                                    if (customlayout) { vg.VertexSize = vsize; }
+                                    vg.VertexBuffer = vbo;
+
+                                    this.clone[i] = vg;
+                                    this.buffer[i] = vbo;
                                 }
+                                else
+                                {
+                                    DX11VertexGeometry vg = (DX11VertexGeometry)this.FIn[i][context].ShallowCopy();
 
-                                int vsize = customlayout ? size : ig.VertexSize;
-                                Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, maxv);
+                                    int maxv = vg.VerticesCount;
+                                    if (this.FInMaxElements[i] > 0)
+                                    {
+                                        maxv = this.FInMaxElements[i];
+                                    }
 
-                                //Copy a new Vertex buffer with stream out
+                                    int vsize = customlayout ? size : vg.VertexSize;
+                                    Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, maxv);
+                                    vg.VertexBuffer = vbo;
+                                    vg.AssignDrawer(new DX11VertexAutoDrawer());
+                                    if (customlayout) { vg.VertexSize = vsize; }
+
+                                    this.clone[i] = vg;
+                                    this.buffer[i] = vbo;
+                                }
+                            }
+                            #endregion
+
+                            #region Inxexed geom
+                            if (this.FIn[i][context] is DX11IndexedGeometry)
+                            {
+                                if (!this.FInAsAuto[i])
+                                {
+
+                                    DX11IndexedGeometry ig = (DX11IndexedGeometry)this.FIn[i][context].ShallowCopy();
+
+                                    int vsize = customlayout ? size : ig.VertexSize;
+                                    Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, ig.VerticesCount);
+                                    ig.VertexBuffer = vbo;
+                                    if (customlayout) { ig.VertexSize = vsize; }
+                                    this.clone[i] = ig;
+                                    this.buffer[i] = vbo;
+                                }
+                                else
+                                {
+                                    //Need to rebind indexed geom as vertex
+                                    DX11IndexedGeometry ig = (DX11IndexedGeometry)this.FIn[i][context];
+
+                                    int maxv = ig.VerticesCount;
+                                    if (this.FInMaxElements[i] > 0)
+                                    {
+                                        maxv = this.FInMaxElements[i];
+                                    }
+
+                                    int vsize = customlayout ? size : ig.VertexSize;
+                                    Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, vsize, maxv);
+
+                                    //Copy a new Vertex buffer[i] with stream out
+                                    DX11VertexGeometry vg = new DX11VertexGeometry(context);
+                                    vg.AssignDrawer(new DX11VertexAutoDrawer());
+                                    vg.BoundingBox = ig.BoundingBox;
+                                    vg.HasBoundingBox = ig.HasBoundingBox;
+                                    vg.InputLayout = ig.InputLayout;
+                                    vg.Topology = ig.Topology;
+                                    vg.VertexBuffer = vbo;
+                                    vg.VertexSize = ig.VertexSize;
+                                    vg.VerticesCount = ig.VerticesCount;
+
+                                    if (customlayout) { vg.VertexSize = vsize; }
+
+                                    this.clone[i] = vg;
+                                    this.buffer[i] = vbo;
+                                }
+                            }
+                            #endregion
+
+                            #region Null geom
+                            if (this.FIn[i][context] is DX11NullGeometry)
+                            {
+                                DX11NullGeometry ng = (DX11NullGeometry)this.FIn[i][context];
+
+                                Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, size, this.FInMaxElements[i]);
+
+                                //Copy a new Vertex buffer[i] with stream out
                                 DX11VertexGeometry vg = new DX11VertexGeometry(context);
                                 vg.AssignDrawer(new DX11VertexAutoDrawer());
-                                vg.BoundingBox = ig.BoundingBox;
-                                vg.HasBoundingBox = ig.HasBoundingBox;
-                                vg.InputLayout = ig.InputLayout;
-                                vg.Topology = ig.Topology;
+                                vg.BoundingBox = ng.BoundingBox;
+                                vg.HasBoundingBox = ng.HasBoundingBox;
+                                vg.InputLayout = ng.InputLayout;
+                                vg.Topology = ng.Topology;
                                 vg.VertexBuffer = vbo;
-                                vg.VertexSize = ig.VertexSize;
-                                vg.VerticesCount = ig.VerticesCount;
+                                vg.VertexSize = size;
+                                vg.VerticesCount = this.FInMaxElements[i];
 
-                                if (customlayout) { vg.VertexSize = vsize; }
+                                this.clone[i] = vg;
+                                this.buffer[i] = vbo;
 
-                                this.clone = vg;
-                                this.buffer = vbo;
                             }
-                        }
-                        #endregion
-
-                        #region Null geom
-                        if (this.FIn[0][context] is DX11NullGeometry)
-                        {
-                            DX11NullGeometry ng = (DX11NullGeometry)this.FIn[0][context];
-
-                            Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, size, this.FInMaxElements[0]);
-
-                            //Copy a new Vertex buffer with stream out
-                            DX11VertexGeometry vg = new DX11VertexGeometry(context);
-                            vg.AssignDrawer(new DX11VertexAutoDrawer());
-                            vg.BoundingBox = ng.BoundingBox;
-                            vg.HasBoundingBox = ng.HasBoundingBox;
-                            vg.InputLayout = ng.InputLayout;
-                            vg.Topology = ng.Topology;
-                            vg.VertexBuffer = vbo;
-                            vg.VertexSize = size;
-                            vg.VerticesCount = this.FInMaxElements[0];
-
-                            this.clone = vg;
-                            this.buffer = vbo;
-
-                        }
-                        #endregion
+                            #endregion
 
 
-                        #region Index Only geom
-                        if (this.FIn[0][context] is DX11IndexOnlyGeometry)
-                        {
-                            DX11IndexOnlyGeometry ng = (DX11IndexOnlyGeometry)this.FIn[0][context];
+                            #region Index Only geom
+                            if (this.FIn[i][context] is DX11IndexOnlyGeometry)
+                            {
+                                DX11IndexOnlyGeometry ng = (DX11IndexOnlyGeometry)this.FIn[i][context];
 
-                            Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, size, this.FInMaxElements[0]);
+                                Buffer vbo = BufferHelper.CreateStreamOutBuffer(context, size, this.FInMaxElements[i]);
 
-                            //Copy a new Vertex buffer with stream out
-                            DX11VertexGeometry vg = new DX11VertexGeometry(context);
-                            vg.AssignDrawer(new DX11VertexAutoDrawer());
-                            vg.BoundingBox = ng.BoundingBox;
-                            vg.HasBoundingBox = ng.HasBoundingBox;
-                            vg.InputLayout = ng.InputLayout;
-                            vg.Topology = ng.Topology;
-                            vg.VertexBuffer = vbo;
-                            vg.VertexSize = size;
-                            vg.VerticesCount = this.FInMaxElements[0];
+                                //Copy a new Vertex buffer[i] with stream out
+                                DX11VertexGeometry vg = new DX11VertexGeometry(context);
+                                vg.AssignDrawer(new DX11VertexAutoDrawer());
+                                vg.BoundingBox = ng.BoundingBox;
+                                vg.HasBoundingBox = ng.HasBoundingBox;
+                                vg.InputLayout = ng.InputLayout;
+                                vg.Topology = ng.Topology;
+                                vg.VertexBuffer = vbo;
+                                vg.VertexSize = size;
+                                vg.VerticesCount = this.FInMaxElements[i];
 
-                            this.clone = vg;
-                            this.buffer = vbo;
+                                this.clone[i] = vg;
+                                this.buffer[i] = vbo;
+
+                            }
+                            #endregion
+
+                            if (customlayout) { this.clone[i].InputLayout = elems; }
+
+                            if (this.FOutBuffer[i][context] != null)
+                            {
+                                this.FOutBuffer[i][context].SRV.Dispose();
+                            }
+
+                            if (context.ComputeShaderSupport)
+                            {
+                                this.FOutBuffer[i][context] = new DX11RawBuffer(context, this.buffer[i]);
+                            }
+                            else
+                            {
+                                this.FOutBuffer[i][context] = null;
+                            }
 
                         }
-                        #endregion
 
-                        if (customlayout) { this.clone.InputLayout = elems; }
+                        ctx.StreamOutput.SetTargets(new StreamOutputBufferBinding(this.buffer[i], 0));
+                        shaderdata.SetInputAssembler(ctx, this.FIn[i][context], 0);
 
-                        if (this.FOutBuffer[0][context] != null)
-                        {
-                            this.FOutBuffer[0][context].SRV.Dispose();
-                        }
+                        DX11ObjectRenderSettings ors = new DX11ObjectRenderSettings();
+                        ors.DrawCallIndex = 0;
+                        ors.Geometry = this.FIn[i][context];
+                        ors.WorldTransform = Matrix.Identity;
 
-                        if (context.ComputeShaderSupport)
-                        {
-                            this.FOutBuffer[0][context] = new DX11RawBuffer(context, this.buffer);
-                        }
-                        else
-                        {
-                            this.FOutBuffer[0][context] = null;
-                        }
-
-                    }
-
-                    ctx.StreamOutput.SetTargets(new StreamOutputBufferBinding(this.buffer, 0));
-                    shaderdata.SetInputAssembler(ctx, this.FIn[0][context], 0);
-
-                    DX11ObjectRenderSettings ors = new DX11ObjectRenderSettings();
-                    ors.DrawCallIndex = 0;
-                    ors.Geometry = this.FIn[0][context];
-                    ors.WorldTransform = Matrix.Identity;
-
-                    this.varmanager.ApplyPerObject(context, shaderdata.ShaderInstance, ors, 0);
+                        this.varmanager.ApplyPerObject(context, shaderdata.ShaderInstance, ors, 0);
 
 
-                    shaderdata.ApplyPass(ctx);
+                        shaderdata.ApplyPass(ctx);
 
-                    this.FIn[0][context].Draw();
+                        this.FIn[i][context].Draw();
 
-                    ctx.StreamOutput.SetTargets(null);
+                        ctx.StreamOutput.SetTargets(null);
 
-                    this.FOut[0][context] = this.clone;
+                        this.FOut[i][context] = this.clone[i];
 
-                    this.OnEndQuery(context);
+                        this.OnEndQuery(context);
 
                     
+                    }
+                    else
+                    {
+                        this.FOut[i][context] = this.FIn[i][context];
+                    }
                 }
                 else
                 {
-                    this.FOut[0][context] = this.FIn[0][context];
+                    this.FOut[i][context] = this.FIn[i][context];
                 }
-            }
-            else
-            {
-                this.FOut[0][context] = this.FIn[0][context];
             }
             
         }
